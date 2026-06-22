@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
 export default function App() {
   const [form, setForm] = useState({
     recipient: "",
@@ -13,6 +11,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied]   = useState(false);
   const [error, setError]     = useState("");
+  const [btnHover, setBtnHover] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -23,46 +22,34 @@ export default function App() {
       alert("Please fill in recipient and purpose!");
       return;
     }
-
     setLoading(true);
     setOutput("");
     setError("");
-
-    const prompt = `Write a ${form.tone} email to ${form.recipient}.
-Purpose: ${form.purpose}
-Key points to include: ${form.keyPoints || "None"}
-Write only the email content with Subject line. Keep it concise and effective.`;
-
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        }
-      );
-
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipient: form.recipient,
+          purpose: form.purpose,
+          tone: form.tone,
+          keyPoints: form.keyPoints,
+        }),
+      });
       const data = await response.json();
-
       if (!response.ok) {
-        setError(`API Error: ${data?.error?.message || "Unknown error"}`);
+        setError(`Error: ${data?.error || "Unknown error"}`);
         setLoading(false);
         return;
       }
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        setOutput(text);
+      if (data.result) {
+        setOutput(data.result);
       } else {
         setError("No response received. Try again.");
       }
     } catch (err) {
       setError(`Network error: ${err.message}`);
     }
-
     setLoading(false);
   };
 
@@ -72,274 +59,464 @@ Write only the email content with Subject line. Keep it concise and effective.`;
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const clearAll = () => {
+    setOutput("");
+    setError("");
+    setForm({ recipient: "", purpose: "", tone: "professional", keyPoints: "" });
+  };
+
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
+    <div style={s.page}>
 
-        {/* Header */}
-        <div style={styles.header}>
-          <h1 style={styles.title}>✉️ AI Email Writer</h1>
-          <p style={styles.subtitle}>Generate professional emails in seconds</p>
-          <div style={styles.authorTag}>
-            Built by{" "}
-            <a
-              href="https://biki97.github.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.authorLink}
-            >
-              Biki Dutta
-            </a>
+      {/* Top nav */}
+      <nav style={s.nav}>
+        <div style={s.navInner}>
+          <div style={s.navLogo}>
+            <div style={s.logoIcon}>✉</div>
+            <span style={s.logoText}>EmailAI</span>
+          </div>
+          <div style={s.navLinks}>
+            <a href="https://biki97.github.io" target="_blank" rel="noreferrer" style={s.navLink}>Portfolio</a>
+            <a href="https://github.com/biki97" target="_blank" rel="noreferrer" style={s.navLink}>GitHub</a>
+            <a href="https://linkedin.com/in/bikidutta" target="_blank" rel="noreferrer" style={s.navBtn}>LinkedIn ↗</a>
           </div>
         </div>
+      </nav>
 
-        {/* Form */}
-        <div style={styles.card}>
-          <div style={styles.field}>
-            <label style={styles.label}>Who are you writing to?</label>
-            <input
-              style={styles.input}
-              name="recipient"
-              placeholder="e.g. HR Manager, Client, Professor..."
-              value={form.recipient}
-              onChange={handleChange}
-            />
+      {/* Main */}
+      <main style={s.main}>
+
+        {/* Hero */}
+        <div style={s.hero}>
+          <div style={s.heroBadge}>
+            <span style={s.heroBadgeDot}></span>
+            Powered by Google Gemini AI
           </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>What is the purpose?</label>
-            <input
-              style={styles.input}
-              name="purpose"
-              placeholder="e.g. Job application, Follow up, Request leave..."
-              value={form.purpose}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>Tone</label>
-            <select
-              style={styles.input}
-              name="tone"
-              value={form.tone}
-              onChange={handleChange}
-            >
-              <option value="professional">Professional</option>
-              <option value="friendly">Friendly</option>
-              <option value="formal">Formal</option>
-              <option value="urgent">Urgent</option>
-              <option value="apologetic">Apologetic</option>
-              <option value="persuasive">Persuasive</option>
-            </select>
-          </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>Key points to include (optional)</label>
-            <textarea
-              style={styles.textarea}
-              name="keyPoints"
-              placeholder="e.g. 5 years experience, available from Monday, reference number 123..."
-              value={form.keyPoints}
-              onChange={handleChange}
-            />
-          </div>
-
-          <button
-            style={loading ? styles.btnDisabled : styles.btn}
-            onClick={generateEmail}
-            disabled={loading}
-          >
-            {loading ? "Generating..." : "Generate Email ✨"}
-          </button>
+          <h1 style={s.heroTitle}>Write better emails,<br />in seconds</h1>
+          <p style={s.heroSub}>Professional AI-generated emails tailored to your recipient, purpose, and tone.</p>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div style={styles.errorCard}>
-            <p style={styles.errorText}>❌ {error}</p>
-          </div>
-        )}
-
-        {/* Output */}
-        {output && (
-          <div style={styles.card}>
-            <div style={styles.outputHeader}>
-              <h3 style={styles.outputTitle}>Generated Email</h3>
-              <button style={styles.copyBtn} onClick={copyToClipboard}>
-                {copied ? "✓ Copied!" : "Copy"}
-              </button>
+        <div style={s.layout}>
+          {/* Form */}
+          <div style={s.card}>
+            <div style={s.cardHeader}>
+              <h2 style={s.cardTitle}>Compose</h2>
+              {output && (
+                <button style={s.clearBtn} onClick={clearAll}>Clear all</button>
+              )}
             </div>
-            <pre style={styles.output}>{output}</pre>
+
+            <div style={s.field}>
+              <label style={s.label}>Recipient <span style={s.required}>*</span></label>
+              <input
+                style={s.input}
+                name="recipient"
+                placeholder="e.g. HR Manager, Client, Professor..."
+                value={form.recipient}
+                onChange={handleChange}
+                onFocus={e => e.target.style.borderColor = "#4f46e5"}
+                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+              />
+            </div>
+
+            <div style={s.field}>
+              <label style={s.label}>Purpose <span style={s.required}>*</span></label>
+              <input
+                style={s.input}
+                name="purpose"
+                placeholder="e.g. Job application, Follow up, Request leave..."
+                value={form.purpose}
+                onChange={handleChange}
+                onFocus={e => e.target.style.borderColor = "#4f46e5"}
+                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+              />
+            </div>
+
+            <div style={s.row}>
+              <div style={{ ...s.field, flex: 1 }}>
+                <label style={s.label}>Tone</label>
+                <select
+                  style={s.select}
+                  name="tone"
+                  value={form.tone}
+                  onChange={handleChange}
+                  onFocus={e => e.target.style.borderColor = "#4f46e5"}
+                  onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                >
+                  <option value="professional">Professional</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="formal">Formal</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="apologetic">Apologetic</option>
+                  <option value="persuasive">Persuasive</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={s.field}>
+              <label style={s.label}>
+                Key points
+                <span style={s.optional}> — optional</span>
+              </label>
+              <textarea
+                style={s.textarea}
+                name="keyPoints"
+                placeholder="e.g. 5 years experience, available from Monday, reference number 123..."
+                value={form.keyPoints}
+                onChange={handleChange}
+                onFocus={e => e.target.style.borderColor = "#4f46e5"}
+                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+              />
+            </div>
+
+            <button
+              style={loading ? s.btnDisabled : btnHover ? s.btnHover : s.btn}
+              onClick={generateEmail}
+              disabled={loading}
+              onMouseEnter={() => setBtnHover(true)}
+              onMouseLeave={() => setBtnHover(false)}
+            >
+              {loading ? (
+                <span style={s.loadingRow}>
+                  <span style={s.spinner}></span>
+                  Generating...
+                </span>
+              ) : (
+                "Generate email →"
+              )}
+            </button>
           </div>
-        )}
+
+          {/* Error */}
+          {error && (
+            <div style={s.errorCard}>
+              <span style={s.errorIcon}>⚠</span>
+              <p style={s.errorText}>{error}</p>
+            </div>
+          )}
+
+          {/* Output */}
+          {output && (
+            <div style={s.outputCard}>
+              <div style={s.outputHeader}>
+                <div style={s.outputTitleRow}>
+                  <div style={s.outputDot}></div>
+                  <h2 style={s.outputTitle}>Generated email</h2>
+                </div>
+                <button style={s.copyBtn} onClick={copyToClipboard}>
+                  {copied ? "✓ Copied" : "Copy"}
+                </button>
+              </div>
+              <div style={s.outputDivider}></div>
+              <pre style={s.output}>{output}</pre>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
-        <div style={styles.footerWrap}>
-          <p style={styles.footer}>Powered by Google Gemini AI</p>
-          <p style={styles.footerAuthor}>
-            © 2026 AI Email Writer · Built by{" "}
-            <a
-              href="https://biki97.github.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.footerLink}
-            >
+        <footer style={s.footer}>
+          <p style={s.footerText}>
+            Built by{" "}
+            <a href="https://biki97.github.io" target="_blank" rel="noreferrer" style={s.footerLink}>
               Biki Dutta
             </a>
             {" · "}
-            <a
-              href="https://linkedin.com/in/bikidutta"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.footerLink}
-            >
-              LinkedIn
-            </a>
-            {" · "}
-            <a
-              href="https://github.com/biki97"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.footerLink}
-            >
-              GitHub
+            <a href="https://github.com/biki97/ai-email-writer" target="_blank" rel="noreferrer" style={s.footerLink}>
+              View source
             </a>
           </p>
-        </div>
-
-      </div>
+        </footer>
+      </main>
     </div>
   );
 }
 
-const styles = {
+const s = {
   page: {
     minHeight: "100vh",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    background: "#f8fafc",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    color: "#0f172a",
+  },
+
+  /* Nav */
+  nav: {
+    background: "#ffffff",
+    borderBottom: "1px solid #e2e8f0",
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
+  },
+  navInner: {
+    maxWidth: "720px",
+    margin: "0 auto",
+    padding: "0 1.5rem",
+    height: "56px",
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  navLogo: { display: "flex", alignItems: "center", gap: "8px" },
+  logoIcon: {
+    width: "30px",
+    height: "30px",
+    background: "#4f46e5",
+    borderRadius: "8px",
+    display: "flex",
+    alignItems: "center",
     justifyContent: "center",
-    padding: "2rem 1rem",
-    fontFamily: "'Segoe UI', sans-serif",
+    fontSize: "14px",
+    color: "#fff",
   },
-  container: { width: "100%", maxWidth: "680px" },
-  header: { textAlign: "center", marginBottom: "1.5rem" },
-  title: { fontSize: "2rem", fontWeight: "700", color: "#fff", margin: "0 0 0.4rem 0" },
-  subtitle: { color: "rgba(255,255,255,0.85)", fontSize: "1rem", margin: "0 0 0.75rem 0" },
-  authorTag: {
-    display: "inline-block",
-    background: "rgba(255,255,255,0.15)",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,0.3)",
-    borderRadius: "100px",
-    padding: "0.3rem 1rem",
-    fontSize: "0.8rem",
-    color: "rgba(255,255,255,0.9)",
-  },
-  authorLink: {
-    color: "#fde68a",
-    fontWeight: "600",
+  logoText: { fontSize: "15px", fontWeight: "600", color: "#0f172a" },
+  navLinks: { display: "flex", alignItems: "center", gap: "4px" },
+  navLink: {
+    fontSize: "13px",
+    color: "#64748b",
     textDecoration: "none",
+    padding: "6px 10px",
+    borderRadius: "6px",
   },
+  navBtn: {
+    fontSize: "13px",
+    color: "#4f46e5",
+    textDecoration: "none",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "1px solid #e0e7ff",
+    background: "#eef2ff",
+    fontWeight: "500",
+    marginLeft: "4px",
+  },
+
+  /* Hero */
+  main: { maxWidth: "720px", margin: "0 auto", padding: "2.5rem 1.5rem 4rem" },
+  hero: { textAlign: "center", marginBottom: "2.5rem" },
+  heroBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    borderRadius: "100px",
+    padding: "4px 12px",
+    fontSize: "12px",
+    color: "#15803d",
+    fontWeight: "500",
+    marginBottom: "1rem",
+  },
+  heroBadgeDot: {
+    width: "6px",
+    height: "6px",
+    borderRadius: "50%",
+    background: "#22c55e",
+    display: "inline-block",
+  },
+  heroTitle: {
+    fontSize: "2.25rem",
+    fontWeight: "700",
+    color: "#0f172a",
+    lineHeight: "1.2",
+    margin: "0 0 0.75rem",
+    letterSpacing: "-0.02em",
+  },
+  heroSub: {
+    fontSize: "1rem",
+    color: "#64748b",
+    margin: 0,
+    lineHeight: "1.6",
+    maxWidth: "440px",
+    marginLeft: "auto",
+    marginRight: "auto",
+  },
+
+  /* Layout */
+  layout: { display: "flex", flexDirection: "column", gap: "1rem" },
+
+  /* Form card */
   card: {
-    background: "#fff",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
     borderRadius: "16px",
     padding: "1.75rem",
-    marginBottom: "1.25rem",
-    boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
   },
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "1.5rem",
+  },
+  cardTitle: { fontSize: "15px", fontWeight: "600", color: "#0f172a", margin: 0 },
+  clearBtn: {
+    fontSize: "12px",
+    color: "#94a3b8",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "4px 8px",
+  },
+
   field: { marginBottom: "1.25rem" },
+  row: { display: "flex", gap: "12px" },
   label: {
     display: "block",
-    fontSize: "0.85rem",
-    fontWeight: "600",
+    fontSize: "13px",
+    fontWeight: "500",
     color: "#374151",
-    marginBottom: "0.4rem",
+    marginBottom: "6px",
   },
+  required: { color: "#ef4444" },
+  optional: { color: "#94a3b8", fontWeight: "400" },
   input: {
     width: "100%",
-    padding: "0.75rem 1rem",
+    padding: "10px 12px",
     borderRadius: "8px",
-    border: "1.5px solid #e5e7eb",
-    fontSize: "0.95rem",
-    color: "#111",
-    background: "#f9fafb",
+    border: "1px solid #e2e8f0",
+    fontSize: "14px",
+    color: "#0f172a",
+    background: "#f8fafc",
     outline: "none",
     boxSizing: "border-box",
+    transition: "border-color 0.15s",
+  },
+  select: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    fontSize: "14px",
+    color: "#0f172a",
+    background: "#f8fafc",
+    outline: "none",
+    boxSizing: "border-box",
+    cursor: "pointer",
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
   },
   textarea: {
     width: "100%",
-    padding: "0.75rem 1rem",
+    padding: "10px 12px",
     borderRadius: "8px",
-    border: "1.5px solid #e5e7eb",
-    fontSize: "0.95rem",
-    color: "#111",
-    background: "#f9fafb",
+    border: "1px solid #e2e8f0",
+    fontSize: "14px",
+    color: "#0f172a",
+    background: "#f8fafc",
     outline: "none",
     boxSizing: "border-box",
-    minHeight: "100px",
+    minHeight: "90px",
     resize: "vertical",
     fontFamily: "inherit",
+    transition: "border-color 0.15s",
   },
   btn: {
     width: "100%",
-    padding: "0.9rem",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    padding: "11px",
+    background: "#4f46e5",
     color: "#fff",
     border: "none",
-    borderRadius: "10px",
-    fontSize: "1rem",
+    borderRadius: "8px",
+    fontSize: "14px",
     fontWeight: "600",
     cursor: "pointer",
+    marginTop: "4px",
+    letterSpacing: "0.01em",
+  },
+  btnHover: {
+    width: "100%",
+    padding: "11px",
+    background: "#4338ca",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginTop: "4px",
+    letterSpacing: "0.01em",
   },
   btnDisabled: {
     width: "100%",
-    padding: "0.9rem",
-    background: "#9ca3af",
+    padding: "11px",
+    background: "#a5b4fc",
     color: "#fff",
     border: "none",
-    borderRadius: "10px",
-    fontSize: "1rem",
+    borderRadius: "8px",
+    fontSize: "14px",
     fontWeight: "600",
     cursor: "not-allowed",
+    marginTop: "4px",
+  },
+  loadingRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" },
+  spinner: {
+    width: "14px",
+    height: "14px",
+    border: "2px solid rgba(255,255,255,0.3)",
+    borderTop: "2px solid #fff",
+    borderRadius: "50%",
+    display: "inline-block",
+    animation: "spin 0.8s linear infinite",
+  },
+
+  /* Error */
+  errorCard: {
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    borderRadius: "10px",
+    padding: "12px 16px",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "10px",
+  },
+  errorIcon: { color: "#ef4444", fontSize: "15px", marginTop: "1px", flexShrink: 0 },
+  errorText: { color: "#b91c1c", fontSize: "13px", margin: 0, lineHeight: "1.5" },
+
+  /* Output */
+  outputCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "16px",
+    overflow: "hidden",
   },
   outputHeader: {
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "1rem",
+    justifyContent: "space-between",
+    padding: "14px 20px",
   },
-  outputTitle: { margin: 0, fontSize: "1rem", fontWeight: "600", color: "#374151" },
+  outputTitleRow: { display: "flex", alignItems: "center", gap: "8px" },
+  outputDot: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+    background: "#22c55e",
+  },
+  outputTitle: { fontSize: "14px", fontWeight: "600", color: "#0f172a", margin: 0 },
+  outputDivider: { height: "1px", background: "#f1f5f9" },
   copyBtn: {
-    padding: "0.4rem 1rem",
-    background: "#667eea",
-    color: "#fff",
-    border: "none",
+    padding: "5px 12px",
+    background: "#f8fafc",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
     borderRadius: "6px",
-    fontSize: "0.85rem",
+    fontSize: "12px",
+    fontWeight: "500",
     cursor: "pointer",
-    fontWeight: "600",
   },
   output: {
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    fontSize: "0.92rem",
-    color: "#374151",
-    lineHeight: "1.7",
+    fontSize: "14px",
+    color: "#334155",
+    lineHeight: "1.75",
     margin: 0,
     fontFamily: "inherit",
+    padding: "20px",
   },
-  errorCard: {
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    borderRadius: "12px",
-    padding: "1rem",
-    marginBottom: "1rem",
-  },
-  errorText: { color: "#dc2626", fontSize: "0.9rem", margin: 0 },
-  footerWrap: { textAlign: "center", paddingBottom: "1rem" },
-  footer: { color: "rgba(255,255,255,0.6)", fontSize: "0.78rem", margin: "0 0 0.3rem 0" },
-  footerAuthor: { color: "rgba(255,255,255,0.7)", fontSize: "0.8rem", margin: 0 },
-  footerLink: { color: "#fde68a", textDecoration: "none", fontWeight: "600" },
+
+  /* Footer */
+  footer: { marginTop: "3rem", textAlign: "center" },
+  footerText: { fontSize: "13px", color: "#94a3b8", margin: 0 },
+  footerLink: { color: "#64748b", textDecoration: "none", fontWeight: "500" },
 };
